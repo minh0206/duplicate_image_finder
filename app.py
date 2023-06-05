@@ -6,19 +6,16 @@ from QtImageViewer import QtImageViewer
 from ui import Ui_MainWindow
 from PyQt5 import QtWidgets, QtGui
 
-from PyQt5.QtCore import QDir, pyqtSlot
+from PyQt5.QtCore import QDir, pyqtSlot, Qt
 from PyQt5.QtWidgets import (
     QFileDialog,
     QFileDialog,
     QMessageBox,
     QHBoxLayout,
     QListWidgetItem,
+    QShortcut,
 )
-from PyQt5.QtGui import QBrush
-
-# from classification_module.classification_wrapper import CLSWrapper
-# from .QtImageViewer import QtImageViewer
-# from application.worker import workerThread
+from worker import workerThread
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -31,6 +28,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Define global variables
         self.movePath = None
+        self.currentThread = None
 
         # init UI
         self.viewer1 = QtImageViewer()
@@ -43,39 +41,60 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.ui.viewer2.setLayout(layout2)
 
         # sinal
-        self.ui.srcList.itemClicked.connect(self.srcListItemClicked)
-        self.ui.dupList.itemClicked.connect(self.dupListItemClicked)
+        self.ui.srcList.currentItemChanged.connect(self.srcListItemClicked)
+        self.ui.dupList.currentItemChanged.connect(self.dupListItemClicked)
+        self.shortcut = QShortcut(QtGui.QKeySequence("Ctrl+D"), self)
+        self.shortcut.activated.connect(self.deleteImg)
 
         self.ui.btnMove.clicked.connect(self.moveImg)
         self.ui.btnSelectFolder.clicked.connect(self.selectFolder)
         self.ui.btnDelete.clicked.connect(self.deleteImg)
 
     def findDuplicate(self, folder):
-        search = dif(folder)
+        # Pass the function to execute
+        self.currentThread = workerThread(
+            self.findDuplicateThread, folder
+        )  # Any other args, kwargs are passed to the run function
 
-        if search.result:
-            _, value = zip(*search.result.items())
-            return value
+        self.currentThread.signals.result.connect(self.finishedSearch)
+
+        # Execute
+        self.currentThread.start()
+
+    def finishedSearch(self, result):
+        if result:
+            _, value = zip(*result.items())
+            items = list(map(lambda match: ListWidgetItem(match), value))
+
+            for item in items:
+                self.ui.srcList.addItem(item)
         else:
-            return None
+            message = "No duplicate image found in this folder"
+            QMessageBox.information(self, "Search result", message)
+
+    def findDuplicateThread(self, folder):
+        search = dif(folder)
+        return search.result
 
     @pyqtSlot(QListWidgetItem)
     def srcListItemClicked(self, item):
-        self.viewer1.open(item.text())
+        if item:
+            self.viewer1.open(item.text())
 
-        self.ui.dupList.clear()
+            self.ui.dupList.clear()
 
-        for i in item.matches:
-            itm = QListWidgetItem(i["location"])
-            itm.mse = i["mse"]
+            for i in item.matches:
+                itm = QListWidgetItem(i["location"])
+                itm.mse = i["mse"]
 
-            self.ui.dupList.addItem(itm)
+                self.ui.dupList.addItem(itm)
 
-        self.ui.dupList.setCurrentRow(0)
+            self.ui.dupList.setCurrentRow(0)
 
     @pyqtSlot(QListWidgetItem)
     def dupListItemClicked(self, item):
-        self.viewer2.open(item.text())
+        if item:
+            self.viewer2.open(item.text())
 
     @pyqtSlot(QListWidgetItem)
     def fileSelected(self, item):
@@ -101,15 +120,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         )
 
         if path:
-            # Find duplicate
-            result = self.findDuplicate(path)
-            if result:
-                items = list(map(lambda match: ListWidgetItem(match), result))
-                for item in items:
-                    self.ui.srcList.addItem(item)
-            else:
-                message = "No duplicate image found in this folder"
-                QMessageBox.information(self, "Search result", message)
+            self.findDuplicate(path)
 
     def selectFolder(self):
         path = QFileDialog.getExistingDirectory(
@@ -186,16 +197,27 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def _validate(self):
         icon = QtGui.QIcon("check-mark.png")
-        matches = self.ui.srcList.currentItem().matches
 
-        if matches != None and len(matches) == 0:
+        item = self.ui.srcList.currentItem()
+
+        if item != None and len(item.matches) == 0:
             self.ui.srcList.currentItem().setBackground(QtGui.QColor(153, 255, 153))
             self.ui.srcList.currentItem().setIcon(icon)
-            print("empty")
+
+            row = self.ui.srcList.currentRow()
+            item = self.ui.srcList.takeItem(row)
+
+            self.ui.srcList.addItem(item)
 
         dupItem = self.ui.dupList.currentItem()
         if dupItem == None:
             self.viewer2.clearImage()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Left:
+            self.ui.srcList.setFocus()
+        if event.key() == Qt.Key_Right:
+            self.ui.dupList.setFocus()
 
 
 class ListWidgetItem(QListWidgetItem):

@@ -9,8 +9,7 @@ if __name__ == "__main__":
         qapp = QtWidgets.QApplication(sys.argv)
 
     app = ApplicationWindow()
-    app.showMaximized()
-    # app.show()
+    app.show()
     app.activateWindow()
     app.raise_()
     sys.exit(qapp.exec_())
