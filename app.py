@@ -1,25 +1,17 @@
-import sys
 import os
 import shutil
 
 from dif import dif
 from QtImageViewer import QtImageViewer
 from ui import Ui_MainWindow
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtWidgets, QtGui
 
-from PyQt5.QtCore import QDir, QThreadPool, pyqtSlot, QThread
+from PyQt5.QtCore import QDir, pyqtSlot
 from PyQt5.QtWidgets import (
     QFileDialog,
-    QTreeWidgetItem,
-    QTableWidgetItem,
-    QButtonGroup,
-    QCheckBox,
     QFileDialog,
-    QTreeWidgetItem,
     QMessageBox,
-    QHeaderView,
     QHBoxLayout,
-    QVBoxLayout,
     QListWidgetItem,
 )
 from PyQt5.QtGui import QBrush

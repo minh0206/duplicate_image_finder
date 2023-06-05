@@ -28,7 +28,7 @@ except ImportError:
             QMouseEvent,
             QPainter,
             QPen,
-/        )
+        )
         from PyQt5.QtWidgets import (
             QGraphicsView,
             QGraphicsScene,
